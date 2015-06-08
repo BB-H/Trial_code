@@ -14,7 +14,8 @@ import java.util.concurrent.Executors;
  * 直到所有运动员都准备好（CyclicBarrier.await()被调用了n次），此时所有被阻塞的线程同时解除阻塞。所有运动员一起起跑。
  * 用参赛运动员数目(integer n)作为参数创建CountDownLatch实例。 每个运动员跑完全程后触发一个CountDownLatch.countDown()，
  * 当所有参赛运动员/线程都触发了countDown()方法，阻塞在CountDownLatch.await()上的赛事主办方/main线程宣布比赛结束。
- * @author hanl1
+ * @author hanl1   keepintouch_lei@163.com
+ * 
  *
  */
 public class CountdownLatch_CyclicBarrierTest {
