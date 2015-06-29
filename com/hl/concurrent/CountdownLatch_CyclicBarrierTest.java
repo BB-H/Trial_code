@@ -17,7 +17,8 @@ import java.util.concurrent.Executors;
  * 当所有参赛运动员/线程都触发了countDown()方法，阻塞在CountDownLatch.await()上的赛事主办方/main线程宣布比赛结束。
  * @author hanl1   keepintouch_lei@163.com
  * 
- *
+ *在早先的JDK实现中，可以用Thread.join()来实现CountdownLatch和CyclicBarrier的近似功能：
+ *在主线程(当前线程)中调用子线程的join()方法，会导致主线程阻塞直至子线程执行完毕。
  */
 public class CountdownLatch_CyclicBarrierTest {
 
