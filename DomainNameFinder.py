@@ -9,6 +9,8 @@ import urllib2
 import re
 import time
 import random
+import thread
+import threading
 
 USER_AGENT_LIST = [\
         "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/22.0.1207.1 Safari/537.1",\
@@ -130,11 +132,29 @@ USER_AGENT_LIST = [\
 allChars = [chr(i) for i in range(97,123)]
 allChars.extend(range(1,10))
 URL_TEMPLATE = r"http://checkdomain.xinnet.com/domainCheck?searchRandom=5&prefix=%s&suffix=.%s"
-MATCH_TEMPLATE = r"### MATCHED AT %s ###\n DOMAIN NAME:%s\n"
+MATCH_TEMPLATE = r"### MATCHED AT %s ###    DOMAIN NAME:%s"
 domainKeywords = []
 TARGET_DOMAINS=["cn","com"]
+mySemaphore = threading.Semaphore(3)
+myLock = threading.Lock()
+hasMatched = False
 
 
+def checkDomainAvaliabilityRemotely(userAgent,url,fileHandler,domainName):
+	opener = urllib2.build_opener()
+	opener.addheaders = [('User-agent',userAgent)]
+	result = opener.open(url).read()
+	#result = urllib2.urlopen(url).read()
+	print(result)
+	if pattern.match(result):
+		myLock.acquire()
+		fileHandler.write(MATCH_TEMPLATE %(time.ctime(),domainName))
+		myLock.release()
+		print ("\a")#play a voice notification
+		print ("\a")
+		hasMatched = True
+
+########## MAIN #########
 f=open('domainFinderResult.txt','w')
 
 for i in allChars:
@@ -150,27 +170,33 @@ for i in allChars:
 
 
 url_amount = len(domainKeywords)*len(TARGET_DOMAINS)
-index = 1
+index = 0
 matched = 0
 pattern = re.compile(r'.*"yes":\[.+\],"no"')
 
 for domain in TARGET_DOMAINS:
 	for keyword in domainKeywords:
 		url =  URL_TEMPLATE %(keyword,domain)
-		print "CURRENT:(%s/%s), MATCHED:%s" %(index,url_amount,matched)
-		
 		ag = random.choice(USER_AGENT_LIST)
+		index+=1
+		print "CURRENT:(%s/%s), HAS MATCHED:%s" %(index,url_amount,hasMatched)
+		mySemaphore.acquire()
+		
 		opener = urllib2.build_opener()
 		opener.addheaders = [('User-agent',ag )]
 		result = opener.open(url).read()
 		#result = urllib2.urlopen(url).read()
 		print(result)
-		index+=1
 		if pattern.match(result):
+			myLock.acquire()
 			f.write(MATCH_TEMPLATE %(time.ctime(),keyword+"."+domain))
-			matched+=1
-			print ("\a")#play a voice notification
-			print ("\a")
-
+			f.write('\n')
+			hasMatched = True
+			myLock.release()
+			#print ("\a")#play a voice notification
+			#print ("\a")
+		
+		mySemaphore.release()
+		
 f.close()
 
