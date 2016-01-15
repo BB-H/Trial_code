@@ -381,6 +381,7 @@ queryIndex = 0
 domainKeywords = []
 TARGET_DOMAINS=["cn","com"]
 pattern = re.compile(r'.*"yes":\[.+\],"no"')
+lock = threading.Lock()
 
 def isPortAvailable(ip,port):
 	socket.setdefaulttimeout(1)
@@ -391,23 +392,24 @@ def isPortAvailable(ip,port):
 		result=s.connect_ex((ip,port))
 		if result==0:
 			return True
-		else:
-			return False
 	except:
 		return False
 	finally:
 		s.close()
 
-def isProxyAvailable(ipAndPort):
+def checkProxyAvailable(ipAndPort):
+	global proxy_list,lock
 	(ip,port) = ipAndPort.split(":")
 	if(len(port)>0):
-		return isPortAvailable(ip,int(port))
-	else:
-		return False
+		if isPortAvailable(ip,int(port)):
+			lock.acquire()
+			proxy_list.append(ipAndPort)
+			lock.release()
+	
 
-def checkDomainName(inputVal):
+def checkDomainName(domainInfo):
 	global queryIndex,total_url_amount,HAS_MATCHED,fileHandler
-	(keyword,url) = inputVal
+	(keyword,url) = domainInfo
 	ag = random.choice(USER_AGENT_LIST)
 	while(True):
 		enableProxy = random.choice([True,True,True,True,True,True,True,True,True,False])
@@ -423,7 +425,9 @@ def checkDomainName(inputVal):
 			result = opener.open(url).read()
 			break
 		except:
+			lock.acquire()
 			print("[DEBUG:] Fail with proxy:%s" %(proxy))
+			lock.release()
 	if pattern.match(result):
 		lock.acquire()
 		HAS_MATCHED = True
@@ -438,16 +442,18 @@ def checkDomainName(inputVal):
 	lock.release()
 
 def initialize():
-	print("[DEBUG] Checking availability of HTTP proxies, please waiting for a few minutes...")
-	for proxy in all_proxy_list:
-		if isProxyAvailable(proxy):
-			proxy_list.append(proxy)
+	print("[DEBUG] Checking availability of HTTP proxies, please waiting for few minutes...")
+	threadAmount = max(len(all_proxy_list)/5,2)
+	pool = ThreadPool(threadAmount)
+	pool.map(checkProxyAvailable,all_proxy_list)
+	pool.close() 
+	pool.join()
 	print("[DEBUG:] all accessible proxy is:"+str(len(proxy_list)))
 
 ####### Main #######
+print("Start at %s." %time.ctime())
 initialize()
 fileHandler=open('domainFinderResult.txt','w')
-lock = threading.Lock()
 #Put all domains I'm interested in into domainKeywords
 for i in allChars:
 	char1 = str(i)
@@ -468,7 +474,8 @@ for domain in TARGET_DOMAINS:
 		querySet.append((keyword+"."+domain,url))
 		#url =  URL_TEMPLATE %(keyword,domain)
 		#checkDomainName(keyword+"."+domain,url)
-results = pool.map(checkDomainName, querySet)
+pool.map(checkDomainName, querySet)
 pool.close() 
 pool.join() 
+print("Complete at %s." %time.ctime())
 fileHandler.close()
